@@ -32,7 +32,25 @@ export interface CertificateState {
 		id: number;
 		name: string;
 		component: string;
+		isCustom?: boolean;
+		customData?: any;
 	}[];
+	customFields: {
+		[key: string]: {
+			id: string;
+			name: string;
+			type: 'text' | 'table' | 'image' | 'signature';
+			content: any;
+			styles: {
+				fontSize: number;
+				fontWeight: string;
+				textAlign: string;
+				margin: { top: number; bottom: number; left: number; right: number; };
+				border: boolean;
+				backgroundColor: string;
+			};
+		};
+	};
 	data: any; // Define a more specific type for your data later
 }
 
@@ -71,6 +89,7 @@ const initialCertificateState: CertificateState = {
 		{ id: 6, name: 'Uncertainty Statement', component: 'UncertaintyStatementSection' },
 		{ id: 7, name: 'Footer', component: 'FooterSection' }
 	],
+	customFields: {},
 	data: {
 		certificateNo: 'UAL/000087/25',
 		customer: {

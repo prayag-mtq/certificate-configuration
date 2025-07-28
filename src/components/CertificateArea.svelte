@@ -14,6 +14,7 @@
 	import TraceabilityStatementSection from './certificate/TraceabilityStatementSection.svelte';
 	import UncertaintyStatementSection from './certificate/UncertaintyStatementSection.svelte';
 	import FooterSection from './certificate/FooterSection.svelte';
+	import CustomFieldSection from './certificate/CustomFieldSection.svelte';
 
 	// A map to look up the component constructor from the string name in the store.
 	const componentMap: Record<string, any> = {
@@ -23,7 +24,8 @@
 		ReferenceInstrumentSection,
 		TraceabilityStatementSection,
 		UncertaintyStatementSection,
-		FooterSection
+		FooterSection,
+		CustomFieldSection
 	};
 
 	// Reactive declaration: this string will automatically update whenever
@@ -32,7 +34,8 @@
       width: ${$certificate.page.width}${$certificate.page.unit};
       height: ${$certificate.page.height}${$certificate.page.unit};
       padding: ${$certificate.page.margin.top}px ${$certificate.page.margin.right}px ${$certificate.page.margin.bottom}px ${$certificate.page.margin.left}px;
-    `;25
+    `;
+	25;
 </script>
 
 <!-- This is the element that html2canvas will capture for the PDF -->
@@ -40,7 +43,14 @@
 	<!-- Loop through the sections array from the store -->
 	{#each $certificate.sections as section (section.id)}
 		<!-- Use svelte:component to dynamically render the correct component -->
-		<svelte:component this={componentMap[section.component]} />
+		{#if section.isCustom && section.customData?.fieldId}
+			<svelte:component
+				this={componentMap[section.component]}
+				fieldId={section.customData.fieldId}
+			/>
+		{:else}
+			<svelte:component this={componentMap[section.component]} />
+		{/if}
 	{/each}
 </div>
 

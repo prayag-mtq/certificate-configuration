@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { certificate } from '../lib/store';
-	import { onMount, afterUpdate } from 'svelte';
-	
+	import { onMount, tick } from 'svelte';
+
 	// Import all possible section components
 	import HeaderSection from './certificate/HeaderSection.svelte';
 	import CustomerDetailsSection from './certificate/CustomerDetailsSection.svelte';
@@ -10,6 +10,7 @@
 	import TraceabilityStatementSection from './certificate/TraceabilityStatementSection.svelte';
 	import UncertaintyStatementSection from './certificate/UncertaintyStatementSection.svelte';
 	import FooterSection from './certificate/FooterSection.svelte';
+	import CustomFieldSection from './certificate/CustomFieldSection.svelte';
 
 	const componentMap: Record<string, any> = {
 		HeaderSection,
@@ -18,10 +19,10 @@
 		ReferenceInstrumentSection,
 		TraceabilityStatementSection,
 		UncertaintyStatementSection,
-		FooterSection
+		FooterSection,
+		CustomFieldSection
 	};
 
-	let pages: HTMLElement[] = [];
 	let sectionElements: HTMLElement[] = [];
 	let containerElement: HTMLElement;
 
@@ -43,7 +44,7 @@
 		padding: ${marginTop}px ${marginRight}px ${marginBottom}px ${marginLeft}px;
 	`;
 
-	let paginatedSections: Array<{pageIndex: number, sections: typeof $certificate.sections}> = [];
+	let paginatedSections: Array<{ pageIndex: number; sections: typeof $certificate.sections }> = [];
 
 	function calculatePagination() {
 		if (!containerElement || sectionElements.length === 0) return;
@@ -66,7 +67,7 @@
 					pageIndex: currentPage,
 					sections: [...currentPageSections]
 				});
-				
+
 				currentPage++;
 				currentPageHeight = 0;
 				currentPageSections = [];
@@ -86,22 +87,25 @@
 		}
 
 		// Update store with pagination info
-		certificate.update(state => ({
+		certificate.update((state) => ({
 			...state,
 			pagination: {
 				...state.pagination,
 				totalPages: paginatedSections.length,
-				pageBreaks: paginatedSections.slice(1).map(page => page.sections[0]?.id).filter(Boolean)
+				pageBreaks: paginatedSections
+					.slice(1)
+					.map((page) => page.sections[0]?.id)
+					.filter(Boolean)
 			}
 		}));
 	}
 
 	// Recalculate pagination when sections or page dimensions change
-	afterUpdate(() => {
-		if ($certificate.pagination.enabled) {
-			setTimeout(calculatePagination, 100); // Small delay to ensure DOM is updated
-		}
-	});
+	$: if ($certificate.pagination.enabled && $certificate.sections) {
+		tick().then(() => {
+			setTimeout(calculatePagination, 100);
+		});
+	}
 
 	onMount(() => {
 		if ($certificate.pagination.enabled) {
@@ -110,19 +114,26 @@
 	});
 </script>
 
-<div class="certificate-container" bind:this={containerElement}>
+<div class="flex flex-col items-center gap-8" bind:this={containerElement}>
 	{#if $certificate.pagination.enabled && paginatedSections.length > 0}
 		<!-- Paginated view -->
 		{#each paginatedSections as page, pageIndex}
 			<div class="certificate-page" style={pageStyles} data-page={pageIndex + 1}>
-				<div class="page-content">
+				<div class="h-full overflow-hidden relative">
 					{#each page.sections as section (section.id)}
-						<div class="section-wrapper" bind:this={sectionElements[section.id - 1]}>
-							<svelte:component this={componentMap[section.component]} />
+						<div bind:this={sectionElements[section.id - 1]}>
+							{#if section.isCustom && section.customData?.fieldId}
+								<svelte:component
+									this={componentMap[section.component]}
+									fieldId={section.customData.fieldId}
+								/>
+							{:else}
+								<svelte:component this={componentMap[section.component]} />
+							{/if}
 						</div>
 					{/each}
 				</div>
-				
+
 				<!-- Page number footer -->
 				<div class="page-number">
 					Page {pageIndex + 1} of {paginatedSections.length}
@@ -132,10 +143,17 @@
 	{:else}
 		<!-- Single page view for measurement -->
 		<div class="certificate-page measurement-page" style={pageStyles}>
-			<div class="page-content">
+			<div class="h-full overflow-hidden relative">
 				{#each $certificate.sections as section, index (section.id)}
-					<div class="section-wrapper" bind:this={sectionElements[index]}>
-						<svelte:component this={componentMap[section.component]} />
+					<div bind:this={sectionElements[index]}>
+						{#if section.isCustom && section.customData?.fieldId}
+							<svelte:component
+								this={componentMap[section.component]}
+								fieldId={section.customData.fieldId}
+							/>
+						{:else}
+							<svelte:component this={componentMap[section.component]} />
+						{/if}
 					</div>
 				{/each}
 			</div>
@@ -144,20 +162,12 @@
 </div>
 
 <style>
-	.certificate-container {
-		display: flex;
-		flex-direction: column;
-		gap: 2rem;
-		align-items: center;
-	}
-
 	.certificate-page {
-		background-color: white;
-		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-		box-sizing: border-box;
-		flex-shrink: 0;
+		background: white;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+		border: 1px solid #e5e7eb;
 		position: relative;
-		margin-bottom: 1rem;
+		margin-bottom: 2rem;
 	}
 
 	.measurement-page {
@@ -168,44 +178,30 @@
 		pointer-events: none;
 	}
 
-	.page-content {
-		height: 100%;
-		overflow: hidden;
-		position: relative;
-	}
-
-	.section-wrapper {
-		break-inside: avoid;
-		page-break-inside: avoid;
-	}
-
 	.page-number {
 		position: absolute;
-		bottom: 5px;
-		right: 10px;
-		font-size: 0.8rem;
-		color: #666;
-		background: rgba(255, 255, 255, 0.8);
-		padding: 2px 6px;
-		border-radius: 3px;
+		bottom: 8px;
+		right: 12px;
+		font-size: 0.75rem;
+		color: #6b7280;
+		background: rgba(255, 255, 255, 0.9);
+		padding: 4px 8px;
+		border-radius: 4px;
+		border: 1px solid #e5e7eb;
 	}
 
-	/* Print styles */
 	@media print {
-		.certificate-container {
-			gap: 0;
-		}
-		
 		.certificate-page {
 			box-shadow: none;
+			border: none;
 			margin-bottom: 0;
 			page-break-after: always;
 		}
-		
+
 		.certificate-page:last-child {
 			page-break-after: auto;
 		}
-		
+
 		.page-number {
 			display: none;
 		}
