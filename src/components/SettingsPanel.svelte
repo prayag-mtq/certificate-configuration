@@ -9,14 +9,13 @@
 
 	async function triggerExport() {
 		try {
-			const certificateElement = document.querySelector('.certificate-paper');
-			if (!certificateElement) {
+			const certificatePages = document.querySelectorAll(
+				'.certificate-page:not(.measurement-page)'
+			);
+			if (certificatePages.length === 0) {
 				alert('Certificate preview not found');
 				return;
 			}
-
-			const canvas = await html2canvas(certificateElement as HTMLElement);
-			const imgData = canvas.toDataURL('image/png');
 
 			// Convert dimensions from mm to points (1 mm = 2.834645669 points)
 			const mmToPoints = 2.834645669;
@@ -29,12 +28,37 @@
 				format: [pdfWidth, pdfHeight]
 			});
 
-			pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+			// Process each page
+			for (let i = 0; i < certificatePages.length; i++) {
+				const pageElement = certificatePages[i] as HTMLElement;
+				const canvas = await html2canvas(pageElement, {
+					scale: 2, // Higher quality
+					useCORS: true,
+					allowTaint: true
+				});
+				const imgData = canvas.toDataURL('image/png');
+
+				if (i > 0) {
+					pdf.addPage();
+				}
+				pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+			}
+
 			pdf.save(`certificate-${$certificate.data.certificateNo}.pdf`);
 		} catch (error) {
 			console.error('Error generating PDF:', error);
 			alert('Error generating PDF. Please try again.');
 		}
+	}
+
+	function togglePagination() {
+		certificate.update((state) => ({
+			...state,
+			pagination: {
+				...state.pagination,
+				enabled: !state.pagination.enabled
+			}
+		}));
 	}
 </script>
 
@@ -99,6 +123,37 @@
 				<input id="margin-left" type="number" bind:value={$certificate.page.margin.left} />
 			</div>
 		</div>
+	</div>
+
+	<!-- Pagination Group -->
+	<div class="settings-group">
+		<h3 class="group-title">Pagination</h3>
+		<div class="form-item">
+			<label class="checkbox-label">
+				<input
+					type="checkbox"
+					bind:checked={$certificate.pagination.enabled}
+					on:change={togglePagination}
+				/>
+				Enable automatic page breaks
+			</label>
+		</div>
+		{#if $certificate.pagination.enabled}
+			<div class="pagination-info">
+				<p>Total Pages: <strong>{$certificate.pagination.totalPages}</strong></p>
+				{#if $certificate.pagination.pageBreaks.length > 0}
+					<p>Page breaks after sections:</p>
+					<ul class="page-breaks-list">
+						{#each $certificate.pagination.pageBreaks as breakId}
+							{@const section = $certificate.sections.find((s) => s.id === breakId)}
+							{#if section}
+								<li>{section.name}</li>
+							{/if}
+						{/each}
+					</ul>
+				{/if}
+			</div>
+		{/if}
 	</div>
 
 	<!-- Metadata Group -->
@@ -182,5 +237,33 @@
 		display: grid;
 		grid-template-columns: 1fr 1fr;
 		gap: 1rem;
+	}
+	.checkbox-label {
+		display: flex !important;
+		align-items: center;
+		gap: 0.5rem;
+		cursor: pointer;
+		font-weight: normal !important;
+	}
+	.checkbox-label input[type="checkbox"] {
+		width: auto !important;
+		margin: 0;
+	}
+	.pagination-info {
+		background-color: #f9f9f9;
+		padding: 0.75rem;
+		border-radius: 4px;
+		font-size: 0.85rem;
+	}
+	.pagination-info p {
+		margin: 0.25rem 0;
+	}
+	.page-breaks-list {
+		margin: 0.5rem 0 0 1rem;
+		padding: 0;
+		font-size: 0.8rem;
+	}
+	.page-breaks-list li {
+		margin-bottom: 0.25rem;
 	}
 </style>

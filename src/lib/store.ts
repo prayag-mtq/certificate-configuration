@@ -18,6 +18,12 @@ export interface CertificateState {
 		height: number;
 		margin: Margin;
 	};
+	pagination: {
+		enabled: boolean;
+		currentPage: number;
+		totalPages: number;
+		pageBreaks: number[]; // Array of section IDs that start new pages
+	};
 	metadata: {
 		work: string;
 		version: string;
@@ -44,6 +50,12 @@ const initialCertificateState: CertificateState = {
 			left: 20,
 			linked: true
 		}
+	},
+	pagination: {
+		enabled: true,
+		currentPage: 1,
+		totalPages: 1,
+		pageBreaks: [] // Will be calculated dynamically
 	},
 	metadata: {
 		work: 'WN25-77',
